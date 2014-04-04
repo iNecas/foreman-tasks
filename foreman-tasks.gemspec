@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+
+raise <<MESSAGE
+This is not the repository you are looking for. The foreman-tasks repository was moved. Please update your Gemfile:
+
+gem 'foreman-tasks', :git => 'https://github.com/theforeman/foreman-tasks.git'
+MESSAGE
+
 $:.push File.expand_path("../lib", __FILE__)
 
 # Maintain your gem's version:
