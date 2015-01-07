@@ -16,10 +16,13 @@ module ForemanTasks
              :parent   => :monitor_menu
 
         security_block :foreman_tasks do |map|
-          permission :view_tasks, {:'foreman_tasks/tasks' => [:auto_complete_search, :sub_tasks, :index, :show], :resource_type => 'ForemanTasks::Task'}
-          permission :view_tasks, {:'foreman_tasks/api/tasks' => [:bulk_search, :show], :resource_type => 'ForemanTasks::Task'}
-          permission :edit_tasks, {:'foreman_tasks/tasks' => [:resume, :unlock, :force_unlock, :cancel_step], :resource_type => 'ForemanTasks::Task'}
+          permission :view_foreman_tasks, {:'foreman_tasks/tasks' => [:auto_complete_search, :sub_tasks, :index, :show],
+                                           :'foreman_tasks/api/tasks' => [:bulk_search, :show] }, :resource_type => 'ForemanTasks::Task'
+          permission :edit_foreman_tasks, {:'foreman_tasks/tasks' => [:resume, :unlock, :force_unlock, :cancel_step]}, :resource_type => 'ForemanTasks::Task'
         end
+
+        role "Tasks Manager", [:view_foreman_tasks, :edit_foreman_tasks]
+        role "Tasks Reader", [:view_foreman_tasks]
       end
     end
 
