@@ -12,6 +12,7 @@ module Actions
     end
 
     def plan(proxy, options)
+      options = default_connection_options.merge options
       plan_self(options.merge(:proxy_url => proxy.url))
     end
 
@@ -29,7 +30,13 @@ module Actions
       when ::Dynflow::Action::Cancellable::Cancel
         cancel_proxy_task
       when CallbackData
-        on_data(event.data)
+        if event.data[:result] == 'initialization_error'
+          handle_proxy_exception(event.data[:exception_class]
+                                  .constantize
+                                  .new(event.data[:exception_message]))
+        else
+          on_data(event.data)
+        end
       else
         raise "Unexpected event #{event.inspect}"
       end
@@ -77,6 +84,27 @@ module Actions
 
     def proxy_output=(output)
       output[:proxy_output] = output
+    end
+
+    private
+
+    def default_connection_options
+      { :connection_options => { :retry_interval => 15, :retry_count => 4 } }
+    end
+
+    def handle_proxy_exception(exception)
+      output[:failed_proxy_task_ids] ||= []
+      options = input[:connection_options]
+      if options[:retry_count] - output[:failed_proxy_task_ids].count > 0
+        output[:failed_proxy_task_ids] << output[:proxy_task_id]
+        output[:proxy_task_id] = nil
+        suspend do |suspended_action|
+          @world.clock.ping suspended_action,
+                            Time.now + options[:retry_interval]
+        end
+      else
+        raise exception
+      end
     end
   end
 end
