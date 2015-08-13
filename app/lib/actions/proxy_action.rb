@@ -22,16 +22,16 @@ module Actions
         if output[:proxy_task_id]
           on_resume
         else
-          trigger_proxy_task
+          with_connection_error_handling { trigger_proxy_task }
         end
         suspend
       when ::Dynflow::Action::Skip
         # do nothing
       when ::Dynflow::Action::Cancellable::Cancel
-        cancel_proxy_task
+        with_connection_error_handling(event) { cancel_proxy_task }
       when CallbackData
         if event.data[:result] == 'initialization_error'
-          handle_proxy_exception(event.data[:exception_class]
+          handle_connection_exception(event.data[:exception_class]
                                   .constantize
                                   .new(event.data[:exception_message]))
         else
@@ -40,6 +40,14 @@ module Actions
       else
         raise "Unexpected event #{event.inspect}"
       end
+    end
+
+    def with_connection_error_handling(event = nil, &block)
+      if block_given?
+        block.call()
+      end
+    rescue ::RestClient::Exception, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
+      handle_connection_exception(e, event)
     end
 
     def trigger_proxy_task
@@ -92,7 +100,7 @@ module Actions
       { :connection_options => { :retry_interval => 15, :retry_count => 4 } }
     end
 
-    def handle_proxy_exception(exception)
+    def handle_connection_exception(exception, event = nil)
       output[:failed_proxy_task_ids] ||= []
       options = input[:connection_options]
       if options[:retry_count] - output[:failed_proxy_task_ids].count > 0
@@ -100,7 +108,8 @@ module Actions
         output[:proxy_task_id] = nil
         suspend do |suspended_action|
           @world.clock.ping suspended_action,
-                            Time.now + options[:retry_interval]
+                            Time.now + options[:retry_interval],
+                            event
         end
       else
         raise exception
