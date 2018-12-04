@@ -30,21 +30,31 @@ module ForemanTasks
       describe 'GET /api/tasks/summary' do
         class DummyTestSummaryAction < Support::DummyDynflowAction
           # a dummy test action that do nothing
+          def plan(suspend = false)
+            plan_self :suspend => suspend
+          end
+
           def run
             # a dummy run method
+            if input[:suspend] && output[:suspended].nil?
+              output[:suspended] = true
+              suspend
+            end
           end
         end
 
         test_attributes :pid => 'bdcab413-a25d-4fe1-9db4-b50b5c31ebce'
         it 'get tasks summary' do
-          triggered = ForemanTasks.trigger(DummyTestSummaryAction)
-          wait_for { ForemanTasks::Task.find_by(external_id: triggered.id).state == 'stopped' }
+          triggered = ForemanTasks.trigger(DummyTestSummaryAction, true)
+          wait_for { ForemanTasks::Task.find_by(external_id: triggered.id).state == 'running' }
           get :summary
           assert_response :success
           response = JSON.parse(@response.body)
           assert_kind_of Array, response
           assert_not response.empty?
           assert_kind_of Hash, response[0]
+          ForemanTasks.dynflow.world.event(triggered.id, 2, nil)
+          triggered.finished.wait
         end
       end
 
