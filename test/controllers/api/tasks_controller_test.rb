@@ -37,7 +37,8 @@ module ForemanTasks
 
         test_attributes :pid => 'bdcab413-a25d-4fe1-9db4-b50b5c31ebce'
         it 'get tasks summary' do
-          ForemanTasks.trigger(DummyTestSummaryAction)
+          triggered = ForemanTasks.trigger(DummyTestSummaryAction)
+          wait_for { ForemanTasks::Task.find_by(external_id: triggered.id).state == 'stopped' }
           get :summary
           assert_response :success
           response = JSON.parse(@response.body)
@@ -56,6 +57,7 @@ module ForemanTasks
                                            'Proxy::DummyAction',
                                            'foo' => 'bar')
           Support::DummyProxyAction.proxy.task_triggered.wait(5)
+          wait_for { ForemanTasks::Task.find_by(external_id: triggered.id).state == 'running' }
 
           task = ForemanTasks::Task.where(:external_id => triggered.id).first
           task.state.must_equal 'running'
