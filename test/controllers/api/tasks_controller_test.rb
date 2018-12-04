@@ -47,6 +47,10 @@ module ForemanTasks
         it 'get tasks summary' do
           triggered = ForemanTasks.trigger(DummyTestSummaryAction, true)
           wait_for { ForemanTasks::Task.find_by(external_id: triggered.id).state == 'running' }
+          wait_for do
+            w = ForemanTasks.dynflow.world
+            w.persistence.load_step(triggered.id, 2, w).state == :suspended
+          end
           get :summary
           assert_response :success
           response = JSON.parse(@response.body)
